@@ -1,0 +1,14 @@
+{
+  "name": "wizard-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wizard Cybersecurity Research Platform UI",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node -e \"import('./build.js').then(() => console.log('Build completed. Serve via backend or static server.'))\""
+  },
+  "keywords": ["cybersecurity", "reverse-engineering", "security-testing", "wizard"],
+  "author": "Wizard Research Team",
+  "license": "Apache-2.0"
+}

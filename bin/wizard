@@ -1,0 +1,58 @@
+#!/bin/sh
+# WIZARD Command-Line Interface Launcher
+# Works across Android Termux, Debian proot, and standard Linux distributions
+set -e
+
+# Resolve repository directory (POSIX compliant)
+PRG="$0"
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`"/$link"
+  fi
+done
+BIN_DIR=`dirname "$PRG"`
+WIZARD_HOME=`cd "$BIN_DIR/.." && pwd`
+CALLER_CWD=`pwd`
+
+export PYTHONPATH="$WIZARD_HOME/backend:$PYTHONPATH"
+
+# 1. Detect if running in native Termux
+IS_TERMUX=0
+if [ -n "$TERMUX_VERSION" ] || ([ -d "/data/data/com.termux/files/usr" ] && [ ! -f "/etc/debian_version" ]); then
+    IS_TERMUX=1
+fi
+
+# 2. If in native Termux and proot debian is available, route execution via Debian proot
+if [ "$IS_TERMUX" -eq 1 ] && command -v proot-distro >/dev/null 2>&1 && proot-distro list 2>&1 | grep -q "debian"; then
+    exec proot-distro login debian -- bash -c "cd '$CALLER_CWD' && PYTHONPATH='$WIZARD_HOME/backend' '$WIZARD_HOME/backend/.venv/bin/python' -m app.cli $(printf ' %q' "$@")"
+fi
+
+# 3. Check local virtualenv (standard Linux / Debian proot / macOS)
+PYTHON_BIN=""
+if [ -x "$WIZARD_HOME/backend/.venv/bin/python" ]; then
+    if "$WIZARD_HOME/backend/.venv/bin/python" -c "import sys" >/dev/null 2>&1; then
+        PYTHON_BIN="$WIZARD_HOME/backend/.venv/bin/python"
+    fi
+fi
+
+# 4. Check system python3
+if [ -z "$PYTHON_BIN" ] && command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+fi
+
+# 5. Check system python
+if [ -z "$PYTHON_BIN" ] && command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+fi
+
+if [ -z "$PYTHON_BIN" ]; then
+    echo "[!] Error: Python 3 is required to run Wizard." >&2
+    echo "    Please install Python 3." >&2
+    exit 1
+fi
+
+exec "$PYTHON_BIN" -m app.cli "$@"
