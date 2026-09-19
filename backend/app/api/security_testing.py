@@ -54,3 +54,18 @@ async def api_security_analyze(payload: SecurityAnalysisRequest) -> SecurityTest
         errors=raw_result.get("errors", []),
         timestamp=raw_result.get("timestamp", ""),
     )
+
+
+@router.get("/sarif/{project_id}")
+async def api_security_sarif(project_id: str) -> dict[str, Any]:
+    """Export project static security analysis findings to standard OASIS SARIF v2.1.0."""
+    try:
+        get_project(project_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    from app.services.sarif import findings_to_sarif
+    root = source_root(project_id)
+    raw_result = analyze_security(root)
+    findings = raw_result.get("findings", [])
+    return findings_to_sarif(findings, target_uri=str(root))

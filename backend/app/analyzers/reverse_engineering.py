@@ -27,13 +27,17 @@ def calculate_entropy(data: bytes) -> float:
     """Calculate the Shannon entropy of a byte sequence (0.0 to 8.0 bits/byte)."""
     if not data:
         return 0.0
-    length = len(data)
-    counts = Counter(data)
-    entropy = 0.0
-    for count in counts.values():
-        probability = count / length
-        entropy -= probability * math.log2(probability)
-    return round(entropy, 4)
+    try:
+        from app.native.bridge import get_native_bridge
+        return get_native_bridge().calculate_entropy(data)
+    except Exception:
+        length = len(data)
+        counts = Counter(data)
+        entropy = 0.0
+        for count in counts.values():
+            probability = count / length
+            entropy -= probability * math.log2(probability)
+        return round(entropy, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -742,6 +746,22 @@ def analyze_binary(path: Path) -> ReverseEngineeringResult:
                 references=["https://cwe.mitre.org/data/definitions/250.html"],
             )
         )
+
+    # Demangle C++ symbols if present
+    if metadata and metadata.symbols:
+        try:
+            from app.native.bridge import get_native_bridge
+            bridge = get_native_bridge()
+            demangled_symbols = []
+            for sym in metadata.symbols:
+                dem = bridge.demangle_symbol(sym)
+                if dem:
+                    demangled_symbols.append(f"{sym} -> {dem}")
+                else:
+                    demangled_symbols.append(sym)
+            metadata.symbols = demangled_symbols
+        except Exception:
+            pass
 
     return ReverseEngineeringResult(
         tool_used="wizard-re-engine",

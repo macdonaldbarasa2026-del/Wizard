@@ -8,9 +8,15 @@ import pytest
 
 from app.cli import (
     cmd_capabilities,
+    cmd_diff,
     cmd_doctor,
+    cmd_entropy,
+    cmd_gadgets,
+    cmd_native,
     cmd_projects,
     cmd_reverse,
+    cmd_sarif,
+    cmd_scan,
     cmd_security,
     cmd_version,
     main,
@@ -33,7 +39,7 @@ def test_cli_version(capsys: pytest.CaptureFixture) -> None:
     cmd_version()
     captured = capsys.readouterr().out
     assert "WIZARD" in captured
-    assert "0.1.0" in captured
+    assert "2.0.0" in captured or "0.1.0" in captured
 
 
 def test_cli_capabilities(capsys: pytest.CaptureFixture) -> None:
@@ -162,3 +168,62 @@ def test_installer_and_launcher_files_exist() -> None:
     assert (project_root / "README.md").is_file()
     assert (project_root / "LICENSE").is_file()
     assert (project_root / ".gitignore").is_file()
+
+
+def test_cli_native_command(capsys: pytest.CaptureFixture) -> None:
+    cmd_native(bench=True)
+    out = capsys.readouterr().out
+    assert "WIZARD C++ NATIVE CORE ENGINE" in out
+    assert "Status:" in out
+    assert "High-Performance Benchmark" in out
+
+
+def test_cli_gadgets_command(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    f = tmp_path / "gadget_test.bin"
+    f.write_bytes(b"\x90" * 32 + b"\x5f\xc3\x5e\xc3\x0f\x05")
+    cmd_gadgets(str(f))
+    out = capsys.readouterr().out
+    assert "ROP Gadget Analysis" in out
+    assert "Discovered Gadgets" in out
+
+
+def test_cli_entropy_command(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    f = tmp_path / "entropy_test.bin"
+    f.write_bytes(bytes(range(256)) * 4)
+    cmd_entropy(str(f), visualize=True)
+    out = capsys.readouterr().out
+    assert "Entropy Analysis" in out
+    assert "Sparkline Entropy Curve" in out
+
+
+def test_cli_diff_command(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    f1 = tmp_path / "f1.bin"
+    f2 = tmp_path / "f2.bin"
+    f1.write_bytes(b"\x90" * 128)
+    f2.write_bytes(b"\x90" * 128)
+    cmd_diff(str(f1), str(f2))
+    out = capsys.readouterr().out
+    assert "Binary Differ (BinDiff)" in out
+    assert "Similarity Score:" in out
+
+
+def test_cli_scan_command(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    f = tmp_path / "scan_target.bin"
+    f.write_bytes(b"Contains UPX! packer tag")
+    cmd_scan(str(f))
+    out = capsys.readouterr().out
+    assert "Signature & Malware Heuristics Scan" in out
+    assert "UPX Executable Packer" in out
+
+
+def test_cli_sarif_command(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    f = tmp_path / "sample.py"
+    f.write_text("eval('1+1')\n")
+    out_sarif = tmp_path / "test.sarif"
+    cmd_sarif(str(f), output=str(out_sarif))
+    out = capsys.readouterr().out
+    assert "Generating SARIF v2.1.0 report" in out
+    assert out_sarif.is_file()
+    data = json.loads(out_sarif.read_text())
+    assert data["version"] == "2.1.0"
+

@@ -68,10 +68,10 @@ if [ "$IS_TERMUX" -eq 1 ]; then
         proot-distro install debian
     fi
 
-    echo "[*] Verifying Debian proot packages (python3, venv, binutils, file)..."
+    echo "[*] Verifying Debian proot packages (python3, venv, binutils, file, g++, make)..."
     proot-distro login debian -- bash -c "
-        if ! command -v python3 >/dev/null 2>&1 || ! dpkg -s python3-venv >/dev/null 2>&1; then
-            apt-get update && apt-get install -y python3 python3-venv python3-pip binutils file
+        if ! command -v python3 >/dev/null 2>&1 || ! dpkg -s python3-venv >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
+            apt-get update && apt-get install -y python3 python3-venv python3-pip binutils file g++ make
         fi
     "
 
@@ -84,6 +84,12 @@ if [ "$IS_TERMUX" -eq 1 ]; then
         .venv/bin/pip install --upgrade pip
         .venv/bin/pip install -r requirements.txt
     "
+
+    echo "[*] Compiling C++ native acceleration core (libwizard_core.so)..."
+    proot-distro login debian -- bash -c "
+        cd '$INSTALL_DIR/backend/app/native'
+        make clean && make
+    " || true
 
     # Also check if Termux node is present for frontend bundling
     if ! command -v node >/dev/null 2>&1; then
@@ -109,6 +115,11 @@ else
     echo "[*] Installing backend dependencies from requirements.txt..."
     "$INSTALL_DIR/backend/.venv/bin/pip" install --upgrade pip
     "$INSTALL_DIR/backend/.venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
+
+    echo "[*] Compiling C++ native acceleration core (libwizard_core.so)..."
+    if command -v g++ >/dev/null 2>&1 || command -v clang++ >/dev/null 2>&1; then
+        make -C "$INSTALL_DIR/backend/app/native" clean all || true
+    fi
 fi
 
 # 3. Frontend Build
